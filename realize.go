@@ -1,15 +1,16 @@
 package main
 
 import (
-	"github.com/oxequa/interact"
-	"github.com/oxequa/realize/realize"
-	"gopkg.in/urfave/cli.v2"
 	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/oxequa/interact"
+	"github.com/oxequa/realize/realize"
+	"gopkg.in/urfave/cli.v2"
 )
 
 var r realize.Realize
@@ -41,9 +42,7 @@ func main() {
 					&cli.BoolFlag{Name: "legacy", Aliases: []string{"l"}, Value: false, Usage: "Legacy watch by polling instead fsnotify"},
 					&cli.BoolFlag{Name: "no-config", Aliases: []string{"nc"}, Value: false, Usage: "Ignore existing config and doesn't create a new one"},
 				},
-				Action: func(c *cli.Context) error {
-					return start(c)
-				},
+				Action: start,
 			},
 			{
 				Name:        "add",
@@ -60,18 +59,14 @@ func main() {
 					&cli.BoolFlag{Name: "build", Aliases: []string{"b"}, Value: false, Usage: "Enable go build"},
 					&cli.BoolFlag{Name: "run", Aliases: []string{"nr"}, Value: false, Usage: "Enable go run"},
 				},
-				Action: func(c *cli.Context) error {
-					return add(c)
-				},
+				Action: add,
 			},
 			{
 				Name:        "init",
 				Category:    "Configuration",
 				Aliases:     []string{"i"},
 				Description: "Make a new config file step by step.",
-				Action: func(c *cli.Context) error {
-					return setup(c)
-				},
+				Action:      setup,
 			},
 			{
 				Name:        "remove",
@@ -81,9 +76,7 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "name", Aliases: []string{"n"}, Value: ""},
 				},
-				Action: func(c *cli.Context) error {
-					return remove(c)
-				},
+				Action: remove,
 			},
 			{
 				Name:        "clean",
@@ -107,7 +100,6 @@ func main() {
 	}
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
-		os.Exit(1)
 	}
 }
 
@@ -1125,6 +1117,7 @@ func start(c *cli.Context) (err error) {
 	if c.Bool("server") {
 		r.Server.Set(c.Bool("server"), c.Bool("open"), realize.Port, realize.Host)
 	}
+
 	// check no-config and read
 	if !c.Bool("no-config") {
 		// read a config if exist
@@ -1142,8 +1135,7 @@ func start(c *cli.Context) (err error) {
 
 	}
 	// check project list length
-	if len(r.Schema.Projects) <= 0 {
-		println("len", r.Schema.Projects)
+	if len(r.Schema.Projects) == 0 {
 		// create a new project based on given params
 		project := r.Schema.New(c)
 		// Add to projects list

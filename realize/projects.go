@@ -114,14 +114,13 @@ func (p *Project) Before() {
 		p.parent.Before(Context{Project: p})
 		return
 	}
+
+	if hasGoMod(Wdir()) {
+		p.Tools.vgo = true
+	}
+
 	// setup go tools
 	p.Tools.Setup()
-	// set env const
-	for key, item := range p.Env {
-		if err := os.Setenv(key, item); err != nil {
-			p.Buffer.StdErr = append(p.Buffer.StdErr, BufferOut{Time: time.Now(), Text: err.Error(), Type: "Env error", Stream: ""})
-		}
-	}
 	// global commands before
 	p.cmd(p.stop, "before", true)
 	// indexing files and dirs
@@ -344,7 +343,7 @@ L:
 
 // Validate a file path
 func (p *Project) Validate(path string, fcheck bool) bool {
-	if len(path) <= 0 {
+	if len(path) == 0 {
 		return false
 	}
 	// check if skip hidden
@@ -563,6 +562,13 @@ func (p *Project) stamp(t string, o BufferOut, msg string, stream string) {
 	}()
 }
 
+func (p Project) buildEnvs() (envs []string) {
+	for k, v := range p.Env {
+		envs = append(envs, fmt.Sprintf("%s=%s", strings.Replace(k, "=", "", -1), v))
+	}
+	return
+}
+
 // Run a project
 func (p *Project) run(path string, stream chan Response, stop <-chan bool) (err error) {
 	var args []string
@@ -573,6 +579,7 @@ func (p *Project) run(path string, stream chan Response, stop <-chan bool) (err 
 		// https://github.com/golang/go/issues/6720
 		if build != nil {
 			build.Process.Signal(os.Interrupt)
+			build.Process.Wait()
 		}
 	}()
 
@@ -585,9 +592,7 @@ func (p *Project) run(path string, stream chan Response, stop <-chan bool) (err 
 		r.Err = err
 		stream <- r
 	} else {
-		isErrorText = func(t string) bool {
-			return errRegexp.MatchString(t)
-		}
+		isErrorText = errRegexp.MatchString
 	}
 
 	// add additional arguments
@@ -623,6 +628,10 @@ func (p *Project) run(path string, stream chan Response, stop <-chan bool) (err 
 		} else {
 			return errors.New("project not found")
 		}
+	}
+	appendEnvs := p.buildEnvs()
+	if len(appendEnvs) > 0 {
+		build.Env = append(build.Env, appendEnvs...)
 	}
 	// scan project stream
 	stdout, err := build.StdoutPipe()
